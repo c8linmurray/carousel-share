@@ -1,6 +1,8 @@
-import { kv } from '@vercel/kv'
+import { Redis } from '@upstash/redis'
 import { NextResponse } from 'next/server'
 import { randomBytes } from 'crypto'
+
+const redis = Redis.fromEnv()
 
 // POST /api/share
 // Body: { frames: [{name, data (base64 PNG), aspectRatio}], username, caption }
@@ -19,14 +21,13 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Max 20 slides per carousel' }, { status: 400 })
     }
 
-    // Generate a short random ID
-    const id = randomBytes(5).toString('hex') // e.g. "a3f9c2"
+    const id = randomBytes(5).toString('hex')
 
     const payload = {
       id,
       frames: frames.map(f => ({
         name: f.name,
-        data: f.data,         // base64 data URL
+        data: f.data,
         aspectRatio: f.aspectRatio || 1,
       })),
       username: username || 'yourhandle',
@@ -35,7 +36,7 @@ export async function POST(request) {
     }
 
     // Store with 7-day TTL (604800 seconds)
-    await kv.set(`carousel:${id}`, JSON.stringify(payload), { ex: 604800 })
+    await redis.set(`carousel:${id}`, JSON.stringify(payload), { ex: 604800 })
 
     const origin = request.headers.get('origin') || ''
     const url = `${origin}/view/${id}`
