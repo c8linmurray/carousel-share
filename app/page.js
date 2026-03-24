@@ -1,80 +1,64 @@
-export default function Home() {
-  return (
-    <main style={{
-      minHeight: '100vh',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '40px 24px',
-      gap: '32px',
-    }}>
-      <div style={{ textAlign: 'center', maxWidth: 480 }}>
-        <div style={{
-          width: 64, height: 64,
-          borderRadius: 18,
-          background: 'linear-gradient(135deg, #f09433, #e6683c, #dc2743, #cc2366)',
-          margin: '0 auto 24px',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 28,
-        }}>
-          📱
-        </div>
+import { Redis } from '@upstash/redis'
+import CarouselViewer from '../../components/CarouselViewer'
 
-        <h1 style={{
-          fontSize: 32, fontWeight: 700,
-          letterSpacing: '-0.02em',
-          marginBottom: 12,
-          background: 'linear-gradient(135deg, #fff 0%, #888 100%)',
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-        }}>
-          Carousel Share
-        </h1>
+const redis = Redis.fromEnv()
 
-        <p style={{ color: '#888', fontSize: 16, lineHeight: 1.6, marginBottom: 32 }}>
-          Preview your Figma carousel designs in a realistic Instagram mockup —
-          then share a link with anyone, no Figma account needed.
+export async function generateMetadata({ params }) {
+  return {
+    title: 'Carousel Preview',
+    description: 'View this carousel design in an Instagram mockup.',
+    openGraph: {
+      title: 'Carousel Preview',
+      description: 'View this carousel design in an Instagram mockup.',
+    },
+  }
+}
+
+export default async function ViewPage({ params }) {
+  const { id } = params
+
+  let data = null
+  let error = null
+
+  try {
+    const raw = await redis.get(`carousel:${id}`)
+    if (!raw) {
+      error = 'not-found'
+    } else {
+      data = typeof raw === 'string' ? JSON.parse(raw) : raw
+    }
+  } catch (e) {
+    console.error('Redis fetch error:', e)
+    error = 'error'
+  }
+
+  if (error === 'not-found') {
+    return (
+      <main style={{
+        minHeight: '100vh', display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center', gap: 12,
+      }}>
+        <div style={{ fontSize: 40 }}>🔍</div>
+        <h1 style={{ fontSize: 20, fontWeight: 700 }}>Preview not found</h1>
+        <p style={{ color: '#666', fontSize: 14 }}>
+          This link may have expired. Previews last 7 days.
         </p>
+      </main>
+    )
+  }
 
-        <div style={{
-          background: '#141414',
-          border: '1px solid #222',
-          borderRadius: 16,
-          padding: '24px',
-          textAlign: 'left',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 16,
-        }}>
-          {[
-            ['1', 'Install the Figma plugin', 'Load "Carousel Preview" from the plugin menu in your Figma file.'],
-            ['2', 'Select your frames', 'Select the carousel slides you want to preview, in order.'],
-            ['3', 'Click Share to Web', 'The plugin exports your frames and generates a shareable link.'],
-            ['4', 'Send the link', 'Anyone with the link can view the Instagram mockup — no login required.'],
-          ].map(([num, title, desc]) => (
-            <div key={num} style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
-              <div style={{
-                width: 26, height: 26, borderRadius: 8,
-                background: '#0095f620',
-                border: '1px solid #0095f640',
-                color: '#0095f6',
-                fontSize: 12, fontWeight: 700,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                flexShrink: 0, marginTop: 1,
-              }}>{num}</div>
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 2 }}>{title}</div>
-                <div style={{ fontSize: 12, color: '#666', lineHeight: 1.5 }}>{desc}</div>
-              </div>
-            </div>
-          ))}
-        </div>
+  if (error) {
+    return (
+      <main style={{
+        minHeight: '100vh', display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center', gap: 12,
+      }}>
+        <div style={{ fontSize: 40 }}>⚠️</div>
+        <h1 style={{ fontSize: 20, fontWeight: 700 }}>Something went wrong</h1>
+        <p style={{ color: '#666', fontSize: 14 }}>Please try again later.</p>
+      </main>
+    )
+  }
 
-        <p style={{ marginTop: 24, fontSize: 12, color: '#444' }}>
-          Shared previews expire after 7 days.
-        </p>
-      </div>
-    </main>
-  )
+  return <CarouselViewer data={data} />
 }
